@@ -171,10 +171,10 @@ async fn pod(config: &config::Config) -> Option<Arc<Pod>> {
     match config.pod {
         None => return None,
         Some(ref config) => {
-            let http_endpoint = config.http_endpoint.clone();
-            let ws_endpoint = config.ws_endpoint.clone();
+            let endpoint = config.endpoint.clone();
+			let explorer = config.explorer.clone();
             let contract_address = config.contract_address;
-            let pod = Pod::new(http_endpoint, ws_endpoint, contract_address)
+            let pod = Pod::new(endpoint, explorer, contract_address)
                 .await
                 .expect("initialize pod");
             return Some(Arc::new(pod));

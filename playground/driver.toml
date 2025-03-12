@@ -36,6 +36,6 @@ base-tokens = [
 preset = "uniswap-v2"
 
 [pod]
-http-endpoint = "https://rpc.dev.pod.network"
-ws-endpoint = "wss://ws-rpc.dev.pod.network"
+endpoint = "https://cow.rpc.v1.pod.network"
+explorer = "https://explorer.v1.pod.network"
 contract-address = "0x217F5658c6ecC27D439922263AD9Bb8e992e0373"

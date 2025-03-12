@@ -67,7 +67,7 @@ async fn route(
                     )
                     .await?;
 
-                    tracing::debug!("submitted tx to pod: {:?}", tx_hash);
+                    tracing::debug!("submitted tx to pod: {}tx/{:?}", pod.explorer, tx_hash);
 
                     pod.wait_past_perfect(deadline).await?;
                     tracing::debug!("auction ended");

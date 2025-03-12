@@ -22,17 +22,17 @@ ethcontract::contract!(
 
 #[derive(Debug, Clone)]
 pub struct Pod {
-    http_endpoint: Url,
-    ws_endpoint: Url,
+    endpoint: Url,
+    pub explorer: Url,
     contract_address: Address,
 }
 
 impl Pod {
     // Initialize a new Pod instance with the given account.
-    pub async fn new(http_endpoint: Url, ws_endpoint: Url, contract_address: Address) -> Result<Self, Error> {
+    pub async fn new(endpoint: Url, explorer: Url, contract_address: Address) -> Result<Self, Error> {
         Ok(Self {
-            http_endpoint,
-            ws_endpoint,
+            endpoint,
+            explorer,
             contract_address,
         })
     }
@@ -46,7 +46,7 @@ impl Pod {
         value: eth::U256,
         data: &[u8],
     ) -> Result<web3::types::H256, Error> {
-        let web3 = Web3::new(Http::new(&self.http_endpoint.to_string())
+        let web3 = Web3::new(Http::new(&self.endpoint.to_string())
             .map_err(|e| Error::FailedToConnect(e.to_string()))?);
         let contract = PodAuction::with_deployment_info(&web3, self.contract_address, None);
 
@@ -107,7 +107,7 @@ impl Pod {
         id: u64,
         deadline: u64,
     ) -> Result<Vec<Event<event_data::BidSubmitted>>, Error> {
-        let web3 = Web3::new(Http::new(&self.http_endpoint.to_string())
+        let web3 = Web3::new(Http::new(&self.endpoint.to_string())
             .map_err(|e| Error::FailedToConnect(e.to_string()))?);
         let contract = PodAuction::with_deployment_info(&web3, self.contract_address, None);
 
@@ -126,7 +126,9 @@ impl Pod {
     }
 
     async fn ws_provider(&self) -> Result<PodProvider, Error> {
-        let ws = WsConnect::new(self.ws_endpoint.clone());
+		let mut ws_url = self.endpoint.clone();
+		ws_url.set_scheme("wss").unwrap(); // NOTE: cannot fail
+        let ws = WsConnect::new(ws_url);
         Ok(ProviderBuilder::new().on_ws(ws).await?)
     }
 }
@@ -135,8 +137,8 @@ impl Pod {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Config {
-    pub http_endpoint: Url,
-    pub ws_endpoint: Url,
+    pub endpoint: Url,
+    pub explorer: Url,
     pub contract_address: eth::H160,
 }
 
