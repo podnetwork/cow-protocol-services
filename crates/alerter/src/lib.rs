@@ -52,11 +52,11 @@ struct OrderBookApi {
 }
 
 impl OrderBookApi {
-    pub fn new(client: Client, base_url: &str) -> Self {
-        Self {
-            base: base_url.parse().unwrap(),
+    pub fn new(client: Client, base_url: &str) -> Result<Self> {
+        Ok(Self {
+            base: base_url.parse().context("invalid order book API URL")?,
             client,
-        }
+        })
     }
 
     pub async fn solvable_orders(&self) -> reqwest::Result<Vec<Order>> {
@@ -192,14 +192,15 @@ impl Alerter {
         zeroex_api: ZeroExApi,
         config: AlertConfig,
         api_get_order_min_interval: Duration,
-    ) -> Self {
+    ) -> Result<Self> {
         let registry = observe::metrics::get_registry();
         let no_trades_but_matchable_order =
-            IntGauge::new("no_trades_but_matchable_order", "0 or 1").unwrap();
+            IntGauge::new("no_trades_but_matchable_order", "0 or 1")
+                .context("create no-trades metric")?;
         registry
             .register(Box::new(no_trades_but_matchable_order.clone()))
-            .unwrap();
-        Self {
+            .context("register no-trades metric")?;
+        Ok(Self {
             orderbook_api,
             zeroex_api,
             config,
@@ -208,7 +209,7 @@ impl Alerter {
             open_orders: HashMap::new(),
             no_trades_but_matchable_order,
             api_get_order_min_interval,
-        }
+        })
     }
 
     async fn update_open_orders(&mut self) -> Result<()> {
@@ -243,7 +244,7 @@ impl Alerter {
             tracing::debug!(order =% uid, "found closed order");
             let start = Instant::now();
             let api_order = self.orderbook_api.order(uid).await.context("get order")?;
-            if api_order.status.unwrap() == OrderStatus::Fulfilled {
+            if matches!(api_order.status, Some(OrderStatus::Fulfilled)) {
                 tracing::debug!(
                     "updating last observed trade because order {} was fulfilled",
                     uid
@@ -382,7 +383,7 @@ struct Arguments {
     pub use_json_logs: bool,
 }
 
-pub async fn start(args: impl Iterator<Item = String>) {
+pub async fn start(args: impl Iterator<Item = String>) -> Result<()> {
     let args = Arguments::parse_from(args);
     let obs_config = observe::Config::new(
         "alerter=debug",
@@ -394,20 +395,20 @@ pub async fn start(args: impl Iterator<Item = String>) {
     observe::panic_hook::install();
     observe::metrics::setup_registry(Some("gp_v2_alerter".to_string()), None);
     tracing::info!("running alerter with {:#?}", args);
-    run(args).await;
+    run(args).await
 }
 
-async fn run(args: Arguments) {
+async fn run(args: Arguments) -> Result<()> {
     let filter = observe::metrics::handle_metrics();
     tokio::task::spawn(warp::serve(filter).bind(([0, 0, 0, 0], args.metrics_port)));
 
     let client = Client::builder()
         .timeout(Duration::from_secs(10))
         .build()
-        .unwrap();
+        .context("build HTTP client")?;
 
     let mut alerter = Alerter::new(
-        OrderBookApi::new(client.clone(), &args.orderbook_api),
+        OrderBookApi::new(client.clone(), &args.orderbook_api)?,
         ZeroExApi::new(client, args.zero_ex_api_key),
         AlertConfig {
             time_without_trade: args.time_without_trade,
@@ -415,7 +416,7 @@ async fn run(args: Arguments) {
             min_alert_interval: args.min_alert_interval,
         },
         args.api_get_order_min_interval,
-    );
+    )?;
 
     let mut errors_in_a_row = 0;
     loop {

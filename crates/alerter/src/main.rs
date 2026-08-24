@@ -2,6 +2,6 @@
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[tokio::main]
-async fn main() {
-    alerter::start(std::env::args()).await;
+async fn main() -> anyhow::Result<()> {
+    alerter::start(std::env::args()).await
 }
